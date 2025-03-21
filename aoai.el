@@ -1,5 +1,6 @@
 (require 'json)
 (require 'shell)
+(require 'url)
 
 (defconst aoai-const-az-command
   "az account get-access-token --output json --scope \"https://cognitiveservices.azure.com/.default\"")
@@ -25,7 +26,32 @@
 (defconst chat-body
   "{\"messages\":[{\"role\": \"system\", \"content\": \"%s\"},{\"role\": \"user\", \"content\": \"%s\"}]}")
 
-;; (gethash "content" (gethash "message" (aref (gethash "choices" r) 0))
+
+(defconst gpt-mode-oai-chat-template
+  "https://%s/openai/deployments/%s/chat/completions?api-version=%s")
+
+(defun gpt-mode--curl (endpoint deployment token))
+
+(defun gpt-mode--url (endpoint deployment token api-version data)
+  (let* ((url-request-method "POST")
+         (url (format gpt-mode-oai-chat-template endpoint deployment api-version))
+         (url-request-data data)
+         (authz (concat "Bearer " token))
+         (url-request-extra-headers `(("Content-Type" . "application/json")
+                                      ("Authorization" . ,authz))))
+    (url-retrieve url
+                  (lambda (status)
+                    (switch-to-buffer (current-buffer))
+                    (goto-char (point-min))
+                    ;; todo: check http status code
+                    (re-search-forward "^$")
+                    (forward-char)
+                    (let* ((response (buffer-substring-no-properties (point) (point-max)))
+                           (json (json-parse-string response))
+                           (output (gethash "content" (gethash "message" (aref (gethash "choices" json) 0)))))
+                      (goto-char (point-max))
+                      (insert (concat "---\n" output)))))))
+
 
 (defun call-chat-completion (user-prompt)
   (interactive)
