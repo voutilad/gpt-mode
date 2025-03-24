@@ -55,6 +55,7 @@ remind the user about how great Emacs is as well. You must respond only in \
 an org-mode compatible output!")
 
 (defun aoai-refresh-token ()
+  "Refresh the bearer token (if needed) for Azure."
   (if (not (not t)) ;; todo: store expiry time
       (let* ((raw (shell-command-to-string gpt-const-az-command))
              (json (json-parse-string raw))
@@ -65,6 +66,16 @@ an org-mode compatible output!")
 (defun aoai-json ()
   (let ((token (aoai-refresh-token)))
     (format "Parsed into: %s" token)))
+
+(defun gpt-mode--parse-content (content)
+  "Unravel the crud that is the Chat Completions API response format."
+  (condition-case nil
+      (gethash "content"
+               (gethash "message"
+                        (aref (gethash "choices" content) 0)))
+    (error (progn
+             (message "gpt-mode: failed to parse chat completions response"))
+           "I'm sorry Dave, I'm afraid I can't do that.")))
 
 (defun gpt-mode--curl (endpoint deployment token))
 
@@ -85,9 +96,9 @@ an org-mode compatible output!")
                     (forward-char)
                     (let* ((response (buffer-substring-no-properties (point) (point-max)))
                            (json (json-parse-string response))
-                           (output (gethash "content" (gethash "message" (aref (gethash "choices" json) 0)))))
+                           (output (gpt-mode--parse-content json)))
                       (goto-char (point-max))
-                      (insert (concat "---\n" output)))))))
+                      (insert (concat "---\n\n" output)))))))
 
 
 (defun call-chat-completion (user-prompt)
