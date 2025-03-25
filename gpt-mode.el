@@ -5,7 +5,8 @@
 ;;;;;;;;;;;;;;;;;
 
 (defconst gpt-const-az-command
-  "az account get-access-token --output json --scope \"https://cognitiveservices.azure.com/.default\"")
+  "az account get-access-token --output json \
+ --scope \"https://cognitiveservices.azure.com/.default\"")
 
 (defconst gpt-const-chat-body
   "{\"messages\":[{\"role\": \"system\", \"content\": \"%s\"},{\"role\": \"user\", \"content\": \"%s\"}]}")
@@ -45,27 +46,24 @@ an org-mode compatible output!"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar aoai-var-token nil)
 
-(setq aoai-var-token nil)
+(defvar gpt--var-token '((expires-on . 0) (token . "")))
+(setq gpt--var-token '((expires-on . 0) (token . "")))
 
 (defvar aoai-system-prompt
   "You are a helpful assistant embedded in Emacs. Answer the question and \
 remind the user about how great Emacs is as well. You must respond only in \
 an org-mode compatible output!")
 
-(defun aoai-refresh-token ()
+(defun gpt-mode-refresh-token ()
   "Refresh the bearer token (if needed) for Azure."
-  (if (not (not t)) ;; todo: store expiry time
+  (if (> (ceiling (float-time)) (alist-get 'expires-on gpt--var-token))
       (let* ((raw (shell-command-to-string gpt-const-az-command))
              (json (json-parse-string raw))
-             (token (gethash "accessToken" json)))
-        (setq aoai-var-token token))
-    aoai-var-token))
-
-(defun aoai-json ()
-  (let ((token (aoai-refresh-token)))
-    (format "Parsed into: %s" token)))
+             (token (gethash "accessToken" json))
+             (expires-on (gethash "expires_on" json)))
+        (setq gpt--var-token `((expires-on . ,expires-on) (token . ,token))))
+    gpt--var-token))
 
 (defun gpt-mode--parse-content (content)
   "Unravel the crud that is the Chat Completions API response format."
@@ -103,7 +101,7 @@ an org-mode compatible output!")
 
 (defun call-chat-completion (user-prompt)
   (interactive)
-  (let ((token (aoai-refresh-token))
+  (let ((token (alist-get 'token (gpt-mode-refresh-token)))
         (data (format gpt-const-chat-body gpt-chat-system-prompt user-prompt)))
-    (message (concat "Sending data: " data))
+    ;;(message (concat "Sending data: " data))
     (gpt-mode--url gpt-chat-endpoint gpt-chat-deployment gpt-chat-api-version data token)))
