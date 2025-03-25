@@ -48,12 +48,6 @@ an org-mode compatible output!"
 
 
 (defvar gpt--var-token '((expires-on . 0) (token . "")))
-(setq gpt--var-token '((expires-on . 0) (token . "")))
-
-(defvar aoai-system-prompt
-  "You are a helpful assistant embedded in Emacs. Answer the question and \
-remind the user about how great Emacs is as well. You must respond only in \
-an org-mode compatible output!")
 
 (defun gpt-mode-refresh-token ()
   "Refresh the bearer token (if needed) for Azure."
