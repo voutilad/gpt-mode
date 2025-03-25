@@ -75,6 +75,27 @@ an org-mode compatible output!")
              (message "gpt-mode: failed to parse chat completions response"))
            "I'm sorry Dave, I'm afraid I can't do that.")))
 
+(defun gpt-mode--kill-buffer ()
+  "hack"
+  (interactive)
+  (kill-this-buffer))
+
+(defun gpt-mode--callback (status)
+  "Called on completion of a Chat Completions request."
+  (switch-to-buffer (current-buffer))
+  (goto-char (point-min))
+  ;; todo: check http status code
+  (re-search-forward "^$") ;; scan to empty line
+  (forward-char)
+  (let* ((response (buffer-substring-no-properties (point) (point-max)))
+         (json (json-parse-string response))
+         (output (gpt-mode--parse-content json)))
+    (goto-char (point-max))
+    (insert (concat "---\n\n" output "\n\n[press 'q' to close buffer]\n")))
+  (let ((keymap (make-sparse-keymap)))
+    (define-key keymap (kbd "q") 'gpt-mode--kill-buffer)
+    (use-local-map keymap)))
+
 (defun gpt-mode--url (endpoint deployment api-version data token)
   "Call the AOAI Chat Completions API using Emacs' built-in url module."
   (let* ((url-request-method "POST")
@@ -84,18 +105,11 @@ an org-mode compatible output!")
          (url-request-extra-headers `(("Content-Type" . "application/json")
                                       ("Authorization" . ,authz))))
     ;; (message (format "Making request to: %s" url))
-    (url-retrieve url
-                  (lambda (status)
-                    (switch-to-buffer (current-buffer))
-                    (goto-char (point-min))
-                    ;; todo: check http status code
-                    (re-search-forward "^$")
-                    (forward-char)
-                    (let* ((response (buffer-substring-no-properties (point) (point-max)))
-                           (json (json-parse-string response))
-                           (output (gpt-mode--parse-content json)))
-                      (goto-char (point-max))
-                      (insert (concat "---\n\n" output)))))))
+    (condition-case nil
+        (progn
+          (url-retrieve url #'gpt-mode--callback)
+          (message "Submitted chat completion."))
+      (error (message "Error submitting chat completion!")))))
 
 ;;;;;;
 
