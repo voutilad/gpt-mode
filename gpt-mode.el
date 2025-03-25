@@ -75,16 +75,15 @@ an org-mode compatible output!")
              (message "gpt-mode: failed to parse chat completions response"))
            "I'm sorry Dave, I'm afraid I can't do that.")))
 
-(defun gpt-mode--curl (endpoint deployment token))
-
 (defun gpt-mode--url (endpoint deployment api-version data token)
+  "Call the AOAI Chat Completions API using Emacs' built-in url module."
   (let* ((url-request-method "POST")
          (url (format gpt-const-aoai-url-template endpoint deployment api-version))
          (url-request-data data)
          (authz (concat "Bearer " token))
          (url-request-extra-headers `(("Content-Type" . "application/json")
                                       ("Authorization" . ,authz))))
-    (message (format "Making request to: %s" url))
+    ;; (message (format "Making request to: %s" url))
     (url-retrieve url
                   (lambda (status)
                     (switch-to-buffer (current-buffer))
@@ -98,10 +97,12 @@ an org-mode compatible output!")
                       (goto-char (point-max))
                       (insert (concat "---\n\n" output)))))))
 
+;;;;;;
 
 (defun call-chat-completion (user-prompt)
+  "Perform a Chat Completion call with the given user-prompt."
   (interactive)
   (let ((token (alist-get 'token (gpt-mode-refresh-token)))
         (data (format gpt-const-chat-body gpt-chat-system-prompt user-prompt)))
-    ;;(message (concat "Sending data: " data))
+    ;; (message (concat "Sending data: " data))
     (gpt-mode--url gpt-chat-endpoint gpt-chat-deployment gpt-chat-api-version data token)))
